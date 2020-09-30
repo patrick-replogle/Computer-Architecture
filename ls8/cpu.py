@@ -77,19 +77,19 @@ class CPU:
         running = True
 
         while running:
-            instruction = self.ram[self.pc]
+            instruction_register = self.ram[self.pc]
 
-            if instruction == 0b00000001:
+            if instruction_register == 0b00000001:
                 running = False
                 break
 
-            elif instruction == 0b10000010:
+            elif instruction_register == 0b10000010:
                 address = self.ram[self.pc+1]
                 value = self.ram[self.pc+2]
 
                 self.ram_write(value, address)
 
-            elif instruction == 0b01000111:
+            elif instruction_register == 0b01000111:
                 address = self.ram[self.pc+1]
 
                 self.ram_read(address)
