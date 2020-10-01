@@ -6,7 +6,7 @@ import sys
 from cpu import *
 
 if len(sys.argv) != 2:
-    print("Usage: ls8.py 'valid filename'")
+    print("Usage: ls8.py 'valid file path'")
 
 else:
     try:
