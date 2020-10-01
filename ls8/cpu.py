@@ -2,6 +2,7 @@
 
 import sys
 
+# Save valid instruction responses as variables for readability
 HLT = 0b00000001
 LDI = 0b10000010
 PRN = 0b01000111
@@ -21,6 +22,15 @@ class CPU:
         self.reg[self.sp] = 0xF4  # Stack pointer is set to F4 to start
         self.pc = 0  # program counter
         self.running = False
+        # store ir methods in dict to speed up program and clean up logic
+        self.valid_ir_dict = {
+            HLT: self.hlt,
+            LDI: self.ldi,
+            PRN: self.prn,
+            MULT: self.mult,
+            PUSH: self.push,
+            POP: self.pop,
+        }
 
     def load(self, file_path):
         """Load a program into memory."""
@@ -80,12 +90,12 @@ class CPU:
         self.reg[MAR] = MDR
 
     def hlt(self):
-        """Instruction to HLT program"""
+        """HLT program"""
         self.running = False
         sys.exit(1)
 
     def ldi(self):
-        """Instruction to run ram_write"""
+        """Run ram_write"""
         reg_num = self.ram[self.pc+1]
         value = self.ram[self.pc+2]
 
@@ -93,14 +103,14 @@ class CPU:
         self.pc += 3
 
     def prn(self):
-        """Instruction to run ram_read"""
+        """Run ram_read"""
         reg_num = self.ram[self.pc+1]
 
         self.ram_read(reg_num)
         self.pc += 2
 
     def mult(self):
-        """Instruction to run MULT from alu"""
+        """Run MULT from alu"""
         reg_num_one = self.ram[self.pc+1]
         reg_num_two = self.ram[self.pc+2]
 
@@ -108,7 +118,7 @@ class CPU:
         self.pc += 3
 
     def push(self):
-        """Instruction to push value in the given register on the stack"""
+        """Push value in the given register on the stack"""
         self.sp -= 1
 
         reg_num = self.ram[self.pc + 1]
@@ -121,7 +131,7 @@ class CPU:
         # print(f"stack: {self.ram[0xE4:0xF4]}")
 
     def pop(self):
-        """Instruction to pop the value at the top of the stack into the given register"""
+        """Pop the value at the top of the stack into the given register"""
         value = self.ram[self.sp]
         address = self.ram[self.pc + 1]
         self.reg[address] = value
@@ -129,28 +139,17 @@ class CPU:
         self.sp += 1
         self.pc += 2
 
-    def call_stack(self, ir):
-        instruction_response_dict = {
-            HLT: self.hlt,
-            LDI: self.ldi,
-            PRN: self.prn,
-            MULT: self.mult,
-            PUSH: self.push,
-            POP: self.pop,
-        }
-
-        if ir in instruction_response_dict:
-            instruction_response_dict[ir]()
-
-        else:
-            print("Not a valid instruction")
-            self.running = False
-            sys.exit(1)
-
     def run(self):
         """Run the CPU."""
         self.running = True
 
         while self.running:
             ir = self.ram[self.pc]
-            self.call_stack(ir)
+
+            if ir in self.valid_ir_dict:
+                self.valid_ir_dict[ir]()
+
+            else:
+                print("Not a valid instruction")
+                self.running = False
+                sys.exit(1)
