@@ -13,10 +13,10 @@ class CPU:
         self.pc = 0
         self.running = False
         self.ir_dict = {}
-        self.ir_dict[0b00000001] = self.HTL
-        self.ir_dict[0b10000010] = self.LDI
-        self.ir_dict[0b01000111] = self.PRN
-        self.ir_dict[0b10100010] = self.MUL
+        self.ir_dict[0b00000001] = self.hlt
+        self.ir_dict[0b10000010] = self.ldi
+        self.ir_dict[0b01000111] = self.prn
+        self.ir_dict[0b10100010] = self.mul
 
     def load(self, file):
         """Load a program into memory."""
@@ -72,29 +72,35 @@ class CPU:
         print()
 
     def ram_read(self, MAR):
+        """Read value stored in given RAM memory address"""
         value = self.ram[MAR]
         print(value)
 
     def ram_write(self, MDR, MAR):
+        """Write value into the given RAM memory address"""
         self.ram[MAR] = MDR
 
-    def HTL(self):
+    def hlt(self):
+        """Instruction to run HLT program"""
         self.running = False
 
-    def LDI(self):
+    def ldi(self):
+        """Instruction to run ram_write"""
         address = self.ram[self.pc+1]
         value = self.ram[self.pc+2]
 
         self.ram_write(value, address)
         self.pc += 3
 
-    def PRN(self):
+    def prn(self):
+        """Instruction to run ram_read"""
         address = self.ram[self.pc+1]
 
         self.ram_read(address)
         self.pc += 2
 
-    def MUL(self):
+    def mul(self):
+        """Instruction to run MUL from alu"""
         address_one = self.ram[self.pc+1]
         address_two = self.ram[self.pc+2]
 
