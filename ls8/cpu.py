@@ -11,34 +11,38 @@ class CPU:
         self.reg = [0] * 8
         self.ram = [0] * 256
         self.pc = 0
+        self.running = False
 
-    def load(self):
+    def load(self, file):
         """Load a program into memory."""
 
         address = 0
 
-        # For now, we've just hardcoded a program:
+        with open(file) as program:
+            for line in program:
+                line = line.strip().split()
 
-        program = [
-            # From print8.ls8
-            0b10000010,  # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111,  # PRN R0
-            0b00000000,
-            0b00000001,  # HLT
-        ]
+                if len(line) == 0:
+                    continue
 
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+                if line[0] == "#":
+                    continue
+
+                try:
+                    self.ram[address] = int(line[0], 2)
+
+                except ValueError:
+                    print(f"Invalid number: {line[0]}")
+
+                address += 1
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        # elif op == "SUB": etc
+        elif op == "MUL":
+            self.ram[reg_a] = self.ram[reg_a] * self.ram[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -62,34 +66,45 @@ class CPU:
 
         print()
 
-    def ram_read(self, address):
-        value = self.ram[address]
+    def ram_read(self, MAR):
+        value = self.ram[MAR]
         print(value)
 
-        self.pc += 2
-
-    def ram_write(self, value, address):
-        self.ram[address] = value
-        self.pc += 3
+    def ram_write(self, MDR, MAR):
+        self.ram[MAR] = MDR
 
     def run(self):
         """Run the CPU."""
-        running = True
+        self.running = True
 
-        while running:
+        while self.running:
             instruction_register = self.ram[self.pc]
-
+            # HLT
             if instruction_register == 0b00000001:
-                running = False
+                self.running = False
                 break
-
+            # LDI
             elif instruction_register == 0b10000010:
                 address = self.ram[self.pc+1]
                 value = self.ram[self.pc+2]
 
                 self.ram_write(value, address)
-
+                self.pc += 3
+            # PRN
             elif instruction_register == 0b01000111:
                 address = self.ram[self.pc+1]
 
                 self.ram_read(address)
+                self.pc += 2
+            # MUL
+            elif instruction_register == 0b10100010:
+                address_one = self.ram[self.pc+1]
+                address_two = self.ram[self.pc+2]
+
+                self.alu("MUL",  address_one, address_two)
+                self.pc += 3
+
+            # increment self.pc by determining the number of arguments for each instruction + 1
+            # number_of_arguments = instruction_register >> 6
+            # size_of_this_instruction = number_of_arguments + 1
+            # self.pc += size_of_this_instruction

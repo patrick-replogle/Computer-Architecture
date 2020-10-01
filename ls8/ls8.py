@@ -5,7 +5,11 @@
 import sys
 from cpu import *
 
-cpu = CPU()
+if len(sys.argv) == 1:
+    print("Usage: python3 ls8.py 'enter valid filename'")
 
-cpu.load()
-cpu.run()
+else:
+    cpu = CPU()
+
+    cpu.load(sys.argv[1])
+    cpu.run()
