@@ -9,6 +9,9 @@ PRN = 0b01000111
 MULT = 0b10100010
 PUSH = 0b01000101
 POP = 0b01000110
+CALL = 0b01010000
+RET = 0b00010001
+ADD = 0b10100000
 
 
 class CPU:
@@ -18,18 +21,20 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0] * 256
         self.reg = [0] * 8
-        self.sp = 7  # Register 7 is reserved as stack pointer
+        self.sp = 7  # stack pointer
         self.reg[self.sp] = 0xF4  # Stack pointer is set to F4 to start
         self.pc = 0  # program counter
         self.running = False
-        # store ir methods in dict to speed up program and clean up logic
-        self.valid_ir_dict = {
+        self.ir_methods = {
             HLT: self.hlt,
             LDI: self.ldi,
             PRN: self.prn,
             MULT: self.mult,
             PUSH: self.push,
             POP: self.pop,
+            CALL: self.call,
+            RET: self.ret,
+            ADD: self.add,
         }
 
     def load(self, file_path):
@@ -104,10 +109,18 @@ class CPU:
 
     def prn(self):
         """Run ram_read"""
-        reg_num = self.ram[self.pc+1]
+        reg_num = self.ram[self.pc + 1]
 
         self.ram_read(reg_num)
         self.pc += 2
+
+    def add(self):
+        """Run ADD from alu"""
+        reg_num_one = self.ram[self.pc + 1]
+        reg_num_two = self.ram[self.pc + 2]
+
+        self.alu("ADD", reg_num_one, reg_num_two)
+        self.pc += 3
 
     def mult(self):
         """Run MULT from alu"""
@@ -119,11 +132,11 @@ class CPU:
 
     def push(self):
         """Push value in the given register on the stack"""
-        self.sp -= 1
+        self.reg[self.sp] -= 1
 
         reg_num = self.ram[self.pc + 1]
         value = self.reg[reg_num]
-        top_of_stack_addr = self.sp
+        top_of_stack_addr = self.reg[self.sp]
         self.ram[top_of_stack_addr] = value
 
         self.pc += 2
@@ -132,12 +145,31 @@ class CPU:
 
     def pop(self):
         """Pop the value at the top of the stack into the given register"""
-        value = self.ram[self.sp]
-        address = self.ram[self.pc + 1]
-        self.reg[address] = value
+        top_of_stack_addr = self.reg[self.sp]
+        value = self.ram[top_of_stack_addr]
 
-        self.sp += 1
+        reg_num = self.ram[self.pc + 1]
+        self.reg[reg_num] = value
+
+        self.reg[self.sp] += 1
         self.pc += 2
+
+    def call(self):
+        """Calls a subroutine (function) at the address stored in the register"""
+        ret_addr = self.pc + 2
+
+        self.reg[self.sp] -= 1
+        self.ram[self.reg[self.sp]] = ret_addr
+
+        reg_num = self.ram[self.pc + 1]
+        self.pc = self.reg[reg_num]
+
+    def ret(self):
+        """Return from subroutine"""
+        ret_addr = self.ram[self.reg[self.sp]]
+        self.reg[self.sp] += 1
+
+        self.pc = ret_addr
 
     def run(self):
         """Run the CPU."""
@@ -146,10 +178,10 @@ class CPU:
         while self.running:
             ir = self.ram[self.pc]
 
-            if ir in self.valid_ir_dict:
-                self.valid_ir_dict[ir]()
+            if ir in self.ir_methods:
+                self.ir_methods[ir]()
 
             else:
-                print("Not a valid instruction")
+                print(f"Invalid instruction {ir} at address {self.pc}")
                 self.running = False
                 sys.exit(1)
