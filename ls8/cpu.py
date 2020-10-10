@@ -2,7 +2,7 @@
 
 import sys
 
-# Save valid instruction responses as variables for readability
+# Instruction responses
 HLT = 0b00000001
 LDI = 0b10000010
 PRN = 0b01000111
@@ -12,6 +12,14 @@ POP = 0b01000110
 CALL = 0b01010000
 RET = 0b00010001
 ADD = 0b10100000
+CMP = 0b10100111
+JMP = 0b01010100
+JEQ = 0b01010101
+JNE = 0b01010110
+AND = 0b10101000
+OR = 0b10101010
+XOR = 0b10101011
+NOT = 0b01101001
 
 
 class CPU:
@@ -21,10 +29,13 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0] * 256
         self.reg = [0] * 8
+        self.running = False
         self.sp = 7  # stack pointer
         self.reg[self.sp] = 0xF4  # Stack pointer is set to F4 to start
         self.pc = 0  # program counter
-        self.running = False
+        self.e = 0  # equal flag
+        self.l = 0  # less than flag
+        self.g = 0  # greater than flag
         self.ir_methods = {
             HLT: self.hlt,
             LDI: self.ldi,
@@ -35,6 +46,14 @@ class CPU:
             CALL: self.call,
             RET: self.ret,
             ADD: self.add,
+            CMP: self.compare,
+            JMP: self.jmp,
+            JEQ: self.jeq,
+            JNE: self.jne,
+            AND: self.AND,
+            OR: self.OR,
+            XOR: self.xor,
+            NOT: self.NOT,
         }
 
     def load(self, file_path):
@@ -61,8 +80,39 @@ class CPU:
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
+
         elif op == "MULT":
             self.reg[reg_a] *= self.reg[reg_b]
+
+        elif op == "CMP":
+            # Equal flag
+            if self.reg[reg_a] == self.reg[reg_b]:
+                self.e = 1
+            else:
+                self.e = 0
+            # Less than flag
+            if self.reg[reg_a] < self.reg[reg_b]:
+                self.l = 1
+            else:
+                self.l = 0
+            # Greater than flag
+            if self.reg[reg_a] > self.reg[reg_b]:
+                self.g = 1
+            else:
+                self.g = 0
+
+        elif op == "AND":
+            self.reg[reg_a] = self.reg[reg_a] & self.reg[reg_b]
+
+        elif op == "OR":
+            self.reg[reg_a] = self.reg[reg_a] | self.reg[reg_b]
+
+        elif op == "XOR":
+            self.reg[reg_a] = self.reg[reg_a] ^ self.reg[reg_b]
+
+        elif op == "NOT":
+            self.reg[reg_a] = ~self.reg[reg_a]
+
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -83,8 +133,6 @@ class CPU:
 
         for i in range(8):
             print(" %02X" % self.reg[i], end='')
-
-        print()
 
     def ram_read(self, MAR):
         """Read value stored in given RAM memory address"""
@@ -137,20 +185,17 @@ class CPU:
         reg_num = self.ram[self.pc + 1]
         value = self.reg[reg_num]
         top_of_stack_addr = self.reg[self.sp]
+
         self.ram[top_of_stack_addr] = value
-
         self.pc += 2
-
-        # print(f"stack: {self.ram[0xE4:0xF4]}")
 
     def pop(self):
         """Pop the value at the top of the stack into the given register"""
         top_of_stack_addr = self.reg[self.sp]
         value = self.ram[top_of_stack_addr]
-
         reg_num = self.ram[self.pc + 1]
-        self.reg[reg_num] = value
 
+        self.reg[reg_num] = value
         self.reg[self.sp] += 1
         self.pc += 2
 
@@ -170,6 +215,66 @@ class CPU:
         self.reg[self.sp] += 1
 
         self.pc = ret_addr
+
+    def compare(self):
+        """Compare the values in two registers"""
+        reg_one = self.ram[self.pc + 1]
+        reg_two = self.ram[self.pc + 2]
+
+        self.alu("CMP", reg_one, reg_two)
+        self.pc += 3
+
+    def jmp(self):
+        """Jump to the address stored in the given register"""
+        reg_num = self.ram[self.pc + 1]
+        next_address = self.reg[reg_num]
+
+        self.pc = next_address
+
+    def jeq(self):
+        """If equal flag is set (true), jump to the address stored in the given register"""
+        if self.e == 1:
+            self.jmp()
+        else:
+            self.pc += 2
+
+    def jne(self):
+        """If E flag is clear (false, 0), jump to the address stored in the given register"""
+        if self.e == 0:
+            self.jmp()
+        else:
+            self.pc += 2
+
+    def AND(self):
+        """Add the value in two registers and store the result in registerA"""
+        reg_one = self.ram[self.pc + 1]
+        reg_two = self.ram[self.pc + 2]
+
+        self.alu("AND", reg_one, reg_two)
+        self.pc += 3
+
+    def OR(self):
+        """Perform a bitwise-OR between the values in registerA and registerB, storing the result in registerA"""
+        reg_one = self.ram[self.pc + 1]
+        reg_two = self.ram[self.pc + 2]
+
+        self.alu("OR", reg_one, reg_two)
+        self.pc += 3
+
+    def xor(self):
+        """Perform a bitwise-XOR between the values in registerA and registerB, storing the result in registerA"""
+        reg_one = self.ram[self.pc + 1]
+        reg_two = self.ram[self.pc + 2]
+
+        self.alu("XOR", reg_one, reg_two)
+        self.pc += 3
+
+    def NOT(self):
+        """Perform a bitwise-NOT on the value in a register, storing the result in the register"""
+        reg_one = self.ram[self.pc + 1]
+
+        self.alu("NOT", reg_one, None)
+        self.pc += 2
 
     def run(self):
         """Run the CPU."""
